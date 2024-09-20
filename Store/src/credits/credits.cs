@@ -1,9 +1,6 @@
 using CounterStrikeSharp.API.Core;
 using static Store.Store;
 using static StoreApi.Store;
-using static StoreApi.IStoreApi;
-using StoreApi;
-
 namespace Store;
 
 public static class Credits
@@ -12,10 +9,12 @@ public static class Credits
 	{
 		return Instance.GlobalStorePlayers.FirstOrDefault(p => p.SteamID == player.SteamID)?.Credits ?? -1;
 	}
+
 	public static int GetOriginal(CCSPlayerController player)
 	{
 		return Instance.GlobalStorePlayers.FirstOrDefault(p => p.SteamID == player.SteamID)?.OriginalCredits ?? -1;
 	}
+
 	public static int SetOriginal(CCSPlayerController player, int credits)
 	{
 		Store_Player? storePlayer = Instance.GlobalStorePlayers.FirstOrDefault(p => p.SteamID == player.SteamID);
@@ -29,6 +28,7 @@ public static class Credits
 
 		return -1;
 	}
+
 	public static int Set(CCSPlayerController player, int credits)
 	{
 		Store_Player? storePlayer = Instance.GlobalStorePlayers.FirstOrDefault(p => p.SteamID == player.SteamID);
@@ -42,6 +42,7 @@ public static class Credits
 
 		return -1;
 	}
+
 	public static int Give(CCSPlayerController player, int credits)
 	{
 		Store_Player? storePlayer = Instance.GlobalStorePlayers.FirstOrDefault(p => p.SteamID == player.SteamID);

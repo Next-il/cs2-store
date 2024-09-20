@@ -76,8 +76,10 @@
   "css_reset": "{blue}{0}{white} resetted {green}{1}{white}'s store datas.",
 
   "credits_earned<active>": "{white}You earned {green}{0} credits {white}for being active on the server.",
+  "credits_earned<active<vip>>": "{white}You earned {orange}{0} bonus credits {white}for being VIP!",
   "credits_earned<inactive>": "{white}You earned {green}{0} credits {white}for being inactive on the server.",
   "credits_earned<kill>": "{white}You earned {green}{0} credits {white}for killing a player.",
+  "credits_earned<kill<vip>>": "{white}You earned {green}{0} bonus credits {white}for being VIP!",
 
   "css_model0": "{blue}{0}{white} turned on the default forcing of player models.",
   "css_model1": "{blue}{0}{white} turned off the default forcing of player models."

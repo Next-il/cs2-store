@@ -11,247 +11,285 @@ using Player = StoreApi.Store.Player;
 
 namespace Store;
 
-public static class Event
+public class Event
 {
-    public static void Unload()
-    {
-        Instance.RemoveListener<OnMapStart>(OnMapStart);
-        Instance.RemoveListener<OnServerPrecacheResources>(OnServerPrecacheResources);
-        Instance.RemoveListener<OnTick>(OnTick);
-        Instance.RemoveListener<OnEntityCreated>(OnEntityCreated);
-        Instance.RemoveListener<OnClientAuthorized>(OnClientAuthorized);
-    }
+	private VipStore? _store;
 
-    public static void Load()
-    {
-        Instance.RegisterListener<OnMapStart>(OnMapStart);
-        Instance.RegisterListener<OnServerPrecacheResources>(OnServerPrecacheResources);
-        Instance.RegisterListener<OnTick>(OnTick);
-        Instance.RegisterListener<OnEntityCreated>(OnEntityCreated);
+	public static void Unload()
+	{
+		Instance.RemoveListener<OnMapStart>(OnMapStart);
+		Instance.RemoveListener<OnServerPrecacheResources>(OnServerPrecacheResources);
+		Instance.RemoveListener<OnTick>(OnTick);
+		Instance.RemoveListener<OnEntityCreated>(OnEntityCreated);
+		Instance.RemoveListener<OnClientAuthorized>(OnClientAuthorized);
+	}
+
+	public static void Load()
+	{
+		Instance.RegisterListener<OnMapStart>(OnMapStart);
+		Instance.RegisterListener<OnServerPrecacheResources>(OnServerPrecacheResources);
+		Instance.RegisterListener<OnTick>(OnTick);
+		Instance.RegisterListener<OnEntityCreated>(OnEntityCreated);
 
 
-        Instance.RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
-        Instance.RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
-        Instance.RegisterEventHandler<EventPlayerDeath>(OnPlayerDeath);
-        Instance.RegisterListener<OnClientAuthorized>(OnClientAuthorized);
+		Instance.RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
+		Instance.RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
+		Instance.RegisterEventHandler<EventPlayerDeath>(OnPlayerDeath);
+		Instance.RegisterListener<OnClientAuthorized>(OnClientAuthorized);
 
-        Instance.AddTimer(5.0F, () =>
-        {
-            StartCreditsTimer();
-        });
-    }
+		Instance.AddTimer(5.0F, () =>
+		{
+			StartCreditsTimer();
+		});
+	}
 
-    public static void StartCreditsTimer()
-    {
-        Instance.AddTimer(Config.Credits.IntervalActiveInActive, () =>
-        {
-            if (GameRules.IgnoreWarmUp())
-            {
-                return;
-            }
+	public static void StartCreditsTimer()
+	{
+		Instance.AddTimer(Config.Credits.IntervalActiveInActive, () =>
+		{
+			if (GameRules.IgnoreWarmUp())
+			{
+				return;
+			}
 
-            foreach (CCSPlayerController player in Utilities.GetPlayers())
-            {
-                if (player == null
-                    || !player.IsValid
-                    || player.PlayerPawn == null
-                    || !player.PlayerPawn.IsValid
-                    || player.PlayerPawn.Value == null
-                    || player.UserId == null
-                    || player.IsBot
-                    || player.IsHLTV)
-                {
-                    continue;
-                }
+			// Check if there are minimum players to give credits
+			if (Utilities.GetPlayers().Count < Config.Credits.MinimumPlayers)
+			{
+				return;
+			}
 
-                CsTeam team = player.Team;
+			foreach (CCSPlayerController player in Utilities.GetPlayers())
+			{
+				if (player == null
+					|| !player.IsValid
+					|| player.PlayerPawn == null
+					|| !player.PlayerPawn.IsValid
+					|| player.PlayerPawn.Value == null
+					|| player.UserId == null
+					|| player.IsBot
+					|| player.IsHLTV)
+				{
+					continue;
+				}
 
-                switch (team)
-                {
-                    case CsTeam.Terrorist:
-                    case CsTeam.CounterTerrorist:
-                        if (Config.Credits.AmountActive > 0)
-                        {
-                            Credits.Give(player, Config.Credits.AmountActive);
-                            player.PrintToChatMessage("credits_earned<active>", Config.Credits.AmountActive);
-                        }
-                        break;
+				CsTeam team = player.Team;
 
-                    case CsTeam.Spectator:
-                        if (Config.Credits.AmountInActive > 0)
-                        {
-                            Credits.Give(player, Config.Credits.AmountInActive);
-                            player.PrintToChatMessage("credits_earned<inactive>", Config.Credits.AmountInActive);
-                        }
-                        break;
-                }
-            }
-        }, TimerFlags.REPEAT);
-    }
+				switch (team)
+				{
+					case CsTeam.Terrorist:
+					case CsTeam.CounterTerrorist:
+						if (Config.Credits.AmountActive > 0)
+						{
+							Credits.Give(player, Config.Credits.AmountActive);
+							player.PrintToChatMessage("credits_earned<active>", Config.Credits.AmountActive);
 
-    public static void OnMapStart(string mapname)
-    {
-        Instance.GlobalStoreItemTypes.ForEach((type) =>
-        {
-            type.MapStart();
-        });
+							if (Config.Credits.VipBonus)
+							{
+								float bonus = Instance._store?.GetVipBonus(player) ?? 0;
+								if (bonus > 0)
+								{
+									int bonusAmount = (int)Math.Round(Config.Credits.AmountActive * bonus) - Config.Credits.AmountActive;
 
-        Instance.AddTimer(5.0F, () =>
-        {
-            GameRules.GlobalGameRules = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!;
-        }, TimerFlags.STOP_ON_MAPCHANGE);
+									Credits.Give(player, bonusAmount);
+									player.PrintToChatMessage("credits_earned<active<vip>>", bonusAmount);
+								}
+							}
+						}
+						break;
 
-        Database.ExecuteAsync("DELETE FROM store_items WHERE DateOfExpiration < NOW() AND DateOfExpiration > '0001-01-01 00:00:00';", null);
+					case CsTeam.Spectator:
+						if (Config.Credits.AmountInActive > 0)
+						{
+							Credits.Give(player, Config.Credits.AmountInActive);
+							player.PrintToChatMessage("credits_earned<inactive>", Config.Credits.AmountInActive);
+						}
+						break;
+				}
+			}
+		}, TimerFlags.REPEAT);
+	}
 
-        List<Store_Item> itemsToRemove = Instance.GlobalStorePlayerItems
-        .Where(item => item.DateOfExpiration < DateTime.Now && item.DateOfExpiration > DateTime.MinValue)
-        .ToList();
+	public static void OnMapStart(string mapname)
+	{
+		Instance.GlobalStoreItemTypes.ForEach((type) =>
+		{
+			type.MapStart();
+		});
 
-        string store_equipmentTableName = Config.DatabaseConnection.DatabaseEquipTableName;
+		Instance.AddTimer(5.0F, () =>
+		{
+			GameRules.GlobalGameRules = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!;
+		}, TimerFlags.STOP_ON_MAPCHANGE);
 
-        foreach (Store_Item? item in itemsToRemove)
-        {
-            Database.ExecuteAsync($"DELETE FROM {store_equipmentTableName} WHERE SteamID == @SteamID AND UniqueId == @UniqueId", new { item.SteamID, item.UniqueId });
+		Database.ExecuteAsync("DELETE FROM store_items WHERE DateOfExpiration < NOW() AND DateOfExpiration > '0001-01-01 00:00:00';", null);
 
-            Instance.GlobalStorePlayerItems.Remove(item);
-            Instance.GlobalStorePlayerEquipments.RemoveAll(i => i.UniqueId == item.UniqueId);
-        }
-    }
+		List<Store_Item> itemsToRemove = Instance.GlobalStorePlayerItems
+		.Where(item => item.DateOfExpiration < DateTime.Now && item.DateOfExpiration > DateTime.MinValue)
+		.ToList();
 
-    public static void OnServerPrecacheResources(ResourceManifest manifest)
-    {
-        foreach (string? model in Config.DefaultModels.CounterTerrorist.Concat(Config.DefaultModels.Terrorist))
-        {
-            manifest.AddResource(model);
-        }
+		string store_equipmentTableName = Config.DatabaseConnection.DatabaseEquipTableName;
 
-        Instance.GlobalStoreItemTypes.ForEach((type) =>
-        {
-            type.ServerPrecacheResources(manifest);
-        });
-    }
+		foreach (Store_Item? item in itemsToRemove)
+		{
+			Database.ExecuteAsync($"DELETE FROM {store_equipmentTableName} WHERE SteamID == @SteamID AND UniqueId == @UniqueId", new { item.SteamID, item.UniqueId });
 
-    public static void OnTick()
-    {
-        Menu.OnTick();
+			Instance.GlobalStorePlayerItems.Remove(item);
+			Instance.GlobalStorePlayerEquipments.RemoveAll(i => i.UniqueId == item.UniqueId);
+		}
+	}
 
-        List<CCSPlayerController> players = Utilities.GetPlayers().Where(p => p.PawnIsAlive).ToList();
+	public static void OnServerPrecacheResources(ResourceManifest manifest)
+	{
+		foreach (string? model in Config.DefaultModels.CounterTerrorist.Concat(Config.DefaultModels.Terrorist))
+		{
+			manifest.AddResource(model);
+		}
 
-        foreach (CCSPlayerController? player in players)
-        {
-            Item_Bunnyhop.OnTick(player);
-        }
+		Instance.GlobalStoreItemTypes.ForEach((type) =>
+		{
+			type.ServerPrecacheResources(manifest);
+		});
+	}
 
-        Instance.GlobalTickrate++;
+	public static void OnTick()
+	{
+		Menu.OnTick();
 
-        if (Instance.GlobalTickrate % 10 != 0)
-        {
-            return;
-        }
+		List<CCSPlayerController> players = Utilities.GetPlayers().Where(p => p.PawnIsAlive).ToList();
 
-        Instance.GlobalTickrate = 0;
+		foreach (CCSPlayerController? player in players)
+		{
+			Item_Bunnyhop.OnTick(player);
+		}
 
-        foreach (CCSPlayerController player in Utilities.GetPlayers())
-        {
-            Item_Trail.OnTick(player);
-            Item_ColoredSkin.OnTick(player);
-            Item_GrenadeTrail.OnTick();
-        }
-    }
+		Instance.GlobalTickrate++;
 
-    public static void OnEntityCreated(CEntityInstance entity)
-    {
-        Item_Smoke.OnEntityCreated(entity);
-        Item_GrenadeTrail.OnEntityCreated(entity);
-        Item_CustomWeapon.OnEntityCreated(entity);
-    }
+		if (Instance.GlobalTickrate % 10 != 0)
+		{
+			return;
+		}
 
-    private static void OnClientAuthorized(int playerSlot, SteamID steamId)
-    {
-        CCSPlayerController? player = Utilities.GetPlayerFromSlot(playerSlot);
+		Instance.GlobalTickrate = 0;
 
-        if (player == null)
-        {
-            return;
-        }
+		foreach (CCSPlayerController player in Utilities.GetPlayers())
+		{
+			Item_Trail.OnTick(player);
+			Item_ColoredSkin.OnTick(player);
+			Item_GrenadeTrail.OnTick();
+		}
+	}
 
-        Database.LoadPlayer(player);
-    }
+	public static void OnEntityCreated(CEntityInstance entity)
+	{
+		Item_Smoke.OnEntityCreated(entity);
+		Item_GrenadeTrail.OnEntityCreated(entity);
+		Item_CustomWeapon.OnEntityCreated(entity);
+	}
 
-    public static HookResult OnPlayerConnectFull(EventPlayerConnectFull @event, GameEventInfo info)
-    {
-        CCSPlayerController? player = @event.Userid;
+	private static void OnClientAuthorized(int playerSlot, SteamID steamId)
+	{
+		CCSPlayerController? player = Utilities.GetPlayerFromSlot(playerSlot);
 
-        if (player == null)
-        {
-            return HookResult.Continue;
-        }
+		if (player == null)
+		{
+			return;
+		}
 
-        if (!Instance.GlobalDictionaryPlayer.TryGetValue(player, value: out _))
-        {
-            Player value = new();
-            Instance.GlobalDictionaryPlayer.Add(player, value);
-        }
+		Database.LoadPlayer(player);
+	}
 
-        Instance.GlobalGiftTimeout.Add(player, 0);
+	public static HookResult OnPlayerConnectFull(EventPlayerConnectFull @event, GameEventInfo info)
+	{
+		CCSPlayerController? player = @event.Userid;
 
-        Database.UpdateVip(player);
+		if (player == null)
+		{
+			return HookResult.Continue;
+		}
 
-        return HookResult.Continue;
-    }
+		if (!Instance.GlobalDictionaryPlayer.TryGetValue(player, value: out _))
+		{
+			Player value = new();
+			Instance.GlobalDictionaryPlayer.Add(player, value);
+		}
 
-    public static HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
-    {
-        CCSPlayerController? player = @event.Userid;
+		Instance.GlobalGiftTimeout.Add(player, 0);
 
-        if (player == null)
-        {
-            return HookResult.Continue;
-        }
+		Database.UpdateVip(player);
 
-        if (!Instance.GlobalDictionaryPlayer.TryGetValue(player, out Player? value))
-        {
-            return HookResult.Continue;
-        }
+		return HookResult.Continue;
+	}
 
-        value?.CreditIntervalTimer?.Kill();
+	public static HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
+	{
+		CCSPlayerController? player = @event.Userid;
 
-        Database.SavePlayer(player);
+		if (player == null)
+		{
+			return HookResult.Continue;
+		}
 
-        Instance.GlobalStorePlayers.RemoveAll(p => p.SteamID == player.SteamID);
-        Instance.GlobalStorePlayerItems.RemoveAll(i => i.SteamID == player.SteamID);
-        Instance.GlobalStorePlayerEquipments.RemoveAll(e => e.SteamID == player.SteamID);
-        Instance.GlobalGiftTimeout.Remove(player);
+		if (!Instance.GlobalDictionaryPlayer.TryGetValue(player, out Player? value))
+		{
+			return HookResult.Continue;
+		}
 
-        return HookResult.Continue;
-    }
-    public static HookResult OnPlayerDeath(EventPlayerDeath @event, GameEventInfo info)
-    {
-        if (GameRules.IgnoreWarmUp())
-        {
-            return HookResult.Continue;
-        }
+		value?.CreditIntervalTimer?.Kill();
 
-        CCSPlayerController? victim = @event.Userid;
-        CCSPlayerController? attacker = @event.Attacker;
+		Database.SavePlayer(player);
 
-        if (victim == null || attacker == null || victim == attacker)
-        {
-            return HookResult.Continue;
-        }
+		Instance.GlobalStorePlayers.RemoveAll(p => p.SteamID == player.SteamID);
+		Instance.GlobalStorePlayerItems.RemoveAll(i => i.SteamID == player.SteamID);
+		Instance.GlobalStorePlayerEquipments.RemoveAll(e => e.SteamID == player.SteamID);
+		Instance.GlobalGiftTimeout.Remove(player);
 
-        Server.NextFrame(() =>
-        {
-            Database.SavePlayer(victim);
-        });
+		return HookResult.Continue;
+	}
+	public static HookResult OnPlayerDeath(EventPlayerDeath @event, GameEventInfo info)
+	{
+		if (GameRules.IgnoreWarmUp())
+		{
+			return HookResult.Continue;
+		}
 
-        if (Config.Credits.AmountKill > 0)
-        {
-            Credits.Give(attacker, Config.Credits.AmountKill);
+		CCSPlayerController? victim = @event.Userid;
+		CCSPlayerController? attacker = @event.Attacker;
 
-            attacker.PrintToChat(Config.Tag + Instance.Localizer["credits_earned<kill>", Config.Credits.AmountKill]);
-        }
+		if (victim == null || attacker == null || victim == attacker)
+		{
+			return HookResult.Continue;
+		}
 
-        return HookResult.Continue;
-    }
+		Server.NextFrame(() =>
+		{
+			Database.SavePlayer(victim);
+		});
+
+		if (Config.Credits.AmountKill > 0)
+		{
+			// Check if there are minimum players to give credits
+			if (Utilities.GetPlayers().Count < Config.Credits.MinimumPlayers)
+			{
+				return HookResult.Continue;
+			}
+
+			Credits.Give(attacker, Config.Credits.AmountKill);
+
+			attacker.PrintToChat(Config.Tag + Instance.Localizer["credits_earned<kill>", Config.Credits.AmountKill]);
+
+			if (Config.Credits.VipBonus)
+			{
+				float bonus = Instance._store?.GetVipBonus(attacker) ?? 0;
+				if (bonus > 0)
+				{
+					int bonusAmount = (int)Math.Round(Config.Credits.AmountKill * bonus) - Config.Credits.AmountKill;
+
+					Credits.Give(attacker, bonusAmount);
+					attacker.PrintToChatMessage("credits_earned<kill<vip>>", bonusAmount);
+				}
+			}
+		}
+
+		return HookResult.Continue;
+	}
 }

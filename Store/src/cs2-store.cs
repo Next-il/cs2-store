@@ -2,6 +2,8 @@ using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Capabilities;
 using StoreApi;
+using VipCoreApi;
+using static VipCoreApi.IVipCoreApi;
 using static StoreApi.Store;
 
 namespace Store;
@@ -19,8 +21,19 @@ public class Store : BasePlugin, IPluginConfig<Item_Config>
 	public List<Store_Item_Types> GlobalStoreItemTypes { get; set; } = [];
 	public Dictionary<CCSPlayerController, Player> GlobalDictionaryPlayer { get; set; } = [];
 	public int GlobalTickrate { get; set; } = 0;
-	public static Store Instance { get; private set; } = new();
 	private StoreAPI _storeApi = new();
+	public VipStore? _store { get; set; } = null;
+    private IVipCoreApi? _api;
+	public static Store Instance { get; private set; } = new();
+    private PluginCapability<IVipCoreApi> PluginCapability { get; } = new("vipcore:core");
+	public override void OnAllPluginsLoaded(bool hotReload)
+    {
+        _api = PluginCapability.Get();
+        if (_api == null) return;
+
+        _store = new VipStore( _api);
+        _api.RegisterFeature(_store, FeatureType.Hide);
+    }
 
 	public Random Random { get; set; } = new();
 	public Dictionary<CCSPlayerController, float> GlobalGiftTimeout { get; set; } = [];
@@ -34,6 +47,7 @@ public class Store : BasePlugin, IPluginConfig<Item_Config>
 		Capabilities.RegisterPluginCapability(IStoreApi.Capability, () => _storeApi);
 
 		Instance = this;
+		// Instance._storeApi = _storeApi;
 
 		Event.Load();
 		Command.Load();
@@ -69,6 +83,7 @@ public class Store : BasePlugin, IPluginConfig<Item_Config>
 
 	public override void Unload(bool hotReload)
 	{
+        _api?.UnRegisterFeature(_store!);
 		Event.Unload();
 	}
 
