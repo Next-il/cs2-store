@@ -14,7 +14,8 @@ public interface IStoreApi
     public int SetPlayerCredits(CCSPlayerController player, int credits);
     public int GetPlayerOriginalCredits(CCSPlayerController player);
     public int SetPlayerOriginalCredits(CCSPlayerController player, int credits);
-    public int GivePlayerCredits(CCSPlayerController player, int credits);
+    public int GivePlayerCredits(CCSPlayerController player, int credits, string? reason = null);
+	public event Action<(CCSPlayerController player, int credits, string? reason)> OnGivePlayerCredits;
     public bool Item_Give(CCSPlayerController player, Dictionary<string, string> item);
     public bool Item_Purchase(CCSPlayerController player, Dictionary<string, string> item);
     public bool Item_Equip(CCSPlayerController player, Dictionary<string, string> item);

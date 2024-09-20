@@ -8,39 +8,17 @@
     "Name": ""
   },
   "Commands": {
-    "Credits": [
-      "credits",
-      "tl"
-    ],
-    "Store": [
-      "store",
-      "shop",
-      "market"
-    ],
-    "Inventory": [
-      "inv",
-      "inventory"
-    ],
-    "GiveCredits": [
-      "givecredits"
-    ],
-    "Gift": [
-      "gift"
-    ],
-    "ResetPlayer": [
-      "resetplayer"
-    ],
-    "ResetDatabase": [
-      "resetdatabase"
-    ]
+    "Credits": ["credits", "tl"],
+    "Store": ["store", "shop", "market"],
+    "Inventory": ["inv", "inventory"],
+    "GiveCredits": ["givecredits"],
+    "Gift": ["gift"],
+    "ResetPlayer": ["resetplayer"],
+    "ResetDatabase": ["resetdatabase"]
   },
   "DefaultModels": {
-    "CT": [
-      "characters/models/ctm_fbi/ctm_fbi_variantb.vmdl"
-    ],
-    "T": [
-      "characters/models/tm_leet/tm_leet_variantj.vmdl"
-    ]
+    "CT": ["characters/models/ctm_fbi/ctm_fbi_variantb.vmdl"],
+    "T": ["characters/models/tm_leet/tm_leet_variantj.vmdl"]
   },
   "Credits": {
     "Start": 0,
